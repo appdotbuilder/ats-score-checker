@@ -1,19 +1,32 @@
+import { db } from '../db';
+import { analysisRecordsTable } from '../db/schema';
 import { type CreateAnalysisRecordInput, type AnalysisRecord } from '../schema';
 
-export async function saveAnalysis(input: CreateAnalysisRecordInput): Promise<AnalysisRecord> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to save the ATS analysis result to the database for future reference.
-    // This allows users to retrieve previous analyses and track improvements over time.
-    
-    return {
-        id: Math.floor(Math.random() * 1000), // Placeholder ID
+export const saveAnalysis = async (input: CreateAnalysisRecordInput): Promise<AnalysisRecord> => {
+  try {
+    // Insert analysis record
+    const result = await db.insert(analysisRecordsTable)
+      .values({
         analysisId: input.analysisId,
         jobDescription: input.jobDescription,
         keywords: input.keywords,
         resumeFileName: input.resumeFileName,
-        atsScore: input.atsScore,
-        analysisResult: input.analysisResult,
-        createdAt: new Date(),
-        updatedAt: new Date()
-    } as AnalysisRecord;
-}
+        atsScore: input.atsScore.toString(), // Convert number to string for numeric column
+        analysisResult: input.analysisResult
+      })
+      .returning()
+      .execute();
+
+    // Convert numeric fields back to numbers and ensure proper typing
+    const analysisRecord = result[0];
+    return {
+      ...analysisRecord,
+      atsScore: parseFloat(analysisRecord.atsScore), // Convert string back to number
+      keywords: analysisRecord.keywords as string[] | null, // Type assertion for JSONB field
+      analysisResult: analysisRecord.analysisResult as Record<string, any> // Type assertion for JSONB field
+    };
+  } catch (error) {
+    console.error('Analysis save failed:', error);
+    throw error;
+  }
+};

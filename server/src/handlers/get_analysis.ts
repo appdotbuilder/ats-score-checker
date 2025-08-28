@@ -1,20 +1,55 @@
+import { db } from '../db';
+import { analysisRecordsTable } from '../db/schema';
 import { type AnalysisRecord } from '../schema';
+import { eq, desc } from 'drizzle-orm';
 
 export async function getAnalysis(analysisId: string): Promise<AnalysisRecord | null> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to retrieve a previously saved ATS analysis by its ID.
-    // This allows users to access their historical analysis results.
+  try {
+    const results = await db.select()
+      .from(analysisRecordsTable)
+      .where(eq(analysisRecordsTable.analysisId, analysisId))
+      .execute();
+
+    if (results.length === 0) {
+      return null;
+    }
+
+    const record = results[0];
     
-    // Placeholder: return null as if analysis not found
-    console.log(`Looking for analysis with ID: ${analysisId}`);
-    return null;
+    // Convert numeric fields and properly type JSON fields
+    return {
+      ...record,
+      atsScore: parseFloat(record.atsScore), // Convert string back to number
+      keywords: record.keywords as string[] | null, // Type assertion for JSON field
+      analysisResult: record.analysisResult as Record<string, any> // Type assertion for JSON field
+    };
+  } catch (error) {
+    console.error('Failed to get analysis:', error);
+    throw error;
+  }
 }
 
 export async function getAllAnalyses(limit?: number): Promise<AnalysisRecord[]> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to retrieve all analysis records, optionally limited.
-    // This could be used for administrative purposes or user history.
-    
-    console.log(`Getting analyses with limit: ${limit || 'unlimited'}`);
-    return [];
+  try {
+    // Build query with conditional limit
+    const baseQuery = db.select()
+      .from(analysisRecordsTable)
+      .orderBy(desc(analysisRecordsTable.createdAt));
+
+    // Execute query with or without limit
+    const results = limit !== undefined 
+      ? await baseQuery.limit(limit).execute()
+      : await baseQuery.execute();
+
+    // Convert numeric fields and properly type JSON fields for all records
+    return results.map(record => ({
+      ...record,
+      atsScore: parseFloat(record.atsScore), // Convert string back to number
+      keywords: record.keywords as string[] | null, // Type assertion for JSON field
+      analysisResult: record.analysisResult as Record<string, any> // Type assertion for JSON field
+    }));
+  } catch (error) {
+    console.error('Failed to get all analyses:', error);
+    throw error;
+  }
 }
